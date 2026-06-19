@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}My Links — Drizl{% endblock %}
+{% block body %}
+<div class="d-layout">
+  <!-- SIDEBAR -->
+  {% include "partials/sidebar.html" %}
+
+  <!-- MAIN -->
+  <div class="d-main">
+    <div class="d-topbar">
+      <div class="d-topbar-title">My Links</div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="theme-switch" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+          <div class="theme-switch-thumb">
+            <svg class="sun-icon-thumb" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:none">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l.707.707M6.343 6.343l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+            </svg>
+            <svg class="moon-icon-thumb" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </div>
+          <div class="theme-switch-icons">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l.707.707M6.343 6.343l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+          </div>
+        </div>
+        <div class="d-search">
+          <span style="color:var(--text3);font-size:14px">⌕</span>
+          <input id="searchInput" placeholder="Search links..." oninput="filterLinks(this.value); updateSearchSuggestions(this.value)" onfocus="showSuggestions()" onblur="hideSuggestions()" onkeydown="handleSearchKeydown(event)" autocomplete="off" />
+          <div id="searchSuggestions" class="d-search-suggestions"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openNewLink()">+ New link</button>
+      </div>
+    </div>
+    <div class="d-content">
+      <div class="d-sh" style="margin-top:0">
+        <div class="d-sh-title">All Links</div>
+        <div class="d-filters">
+          <button class="d-ftab active" onclick="setFilter('all',this)">All</button>
+          <button class="d-ftab" onclick="setFilter('active',this)">Active</button>
+          <button class="d-ftab" onclick="setFilter('ab',this)">A/B</button>
+          <button class="d-ftab" onclick="setFilter('protected',this)">Protected</button>
+          <button class="d-ftab" onclick="setFilter('expired',this)">Expired</button>
+        </div>
+      </div>
+
+      <div class="table-wrap" id="linksTable" style="margin-top:20px">
+        <div class="d-thead" style="grid-template-columns:2fr 3fr 70px 80px 80px">
+          <div class="d-th">Short link</div>
+          <div class="d-th">Destination</div>
+          <div class="d-th">Clicks</div>
+          <div class="d-th">Status</div>
+          <div class="d-th">Created</div>
+        </div>
+        <div id="linksBody"><div style="padding:40px;text-align:center;color:var(--text3)"><div class="spinner" style="margin:0 auto"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW LINK MODAL -->
+{% include "partials/new_link_modal.html" %}
+<!-- LINK DETAIL MODAL -->
+{% include "partials/link_detail_modal.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let allLinks = [], activeFilter = 'all';
+
+async function loadLinks() {
+  const body = document.getElementById('linksBody');
+  try {
+    const r = await fetch('/api/links'); 
+    if (!r.ok) throw new Error('Failed to fetch');
+    const d = await r.json();
+    allLinks = d.links || [];
+    renderLinks(allLinks);
+  } catch (e) {
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">Failed to load links</div>';
+  }
+}
+
+function renderLinks(links) {
+  const filtered = activeFilter === 'all' ? links : links.filter(l => l.status === activeFilter);
+  const body = document.getElementById('linksBody');
+  if (!filtered.length) {
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">No links found</div>';
+    return;
+  }
+  body.innerHTML = filtered.map(l => `
+    <div class="table-row d-trow" 
+         onclick='openLinkDetail(${JSON.stringify(l).replace(/'/g, "&apos;")})'
+         style="display:grid;grid-template-columns:2fr 3fr 70px 80px 80px;padding:12px 14px;align-items:center;cursor:pointer">
+      <div>
+        <div class="d-code mono">${l.short_code}</div>
+        <div class="d-code-sub mono">${l.title || (l.custom_slug ? 'custom slug' : 'auto code')}</div>
+      </div>
+      <div class="d-url" title="${l.original_url}">${l.original_url}</div>
+      <div>
+        <div class="d-clicks">${l.click_count.toLocaleString()}</div>
+        <div class="d-bar"><div class="d-bar-fill" style="width:${Math.min(100,l.click_count/10)}%"></div></div>
+      </div>
+      <div>${badgeHtml(l.status)}</div>
+      <div style="font-size:11px;color:var(--text3)">${fmtDate(l.created_at)}</div>
+    </div>`).join('');
+}
+
+function badgeHtml(status) {
+  const map = {active:'badge-active ● Active',expired:'badge-expired ✕ Expired',ab:'badge-ab ⇄ A/B',protected:'badge-protected 🔒 Protected',inactive:'badge-inactive ○ Inactive'};
+  const s = map[status] || 'badge-inactive ' + status;
+  const [cls,...rest] = s.split(' ');
+  return `<span class="badge ${cls}">${rest.join(' ')}</span>`;
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso); return d.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.d-ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLinks(allLinks);
+}
+
+let activeSuggestionIndex = -1;
+
+function updateSearchSuggestions(q) {
+  const container = document.getElementById('searchSuggestions');
+  if (!container) return;
+
+  const query = q.trim().toLowerCase();
+  
+  // Filter links
+  const filtered = allLinks.filter(l =>
+    l.short_code.toLowerCase().includes(query) || 
+    l.original_url.toLowerCase().includes(query) || 
+    (l.title || '').toLowerCase().includes(query)
+  );
+
+  activeSuggestionIndex = -1; // reset key selection
+
+  if (query === '') {
+    // If query is empty, show the first 5 links as "Recent Links" suggestion
+    if (allLinks.length === 0) {
+      container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">No links available</div>';
+    } else {
+      const recent = allLinks.slice(0, 5);
+      container.innerHTML = `
+        <div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)">Recent Links</div>
+        ${recent.map((l, idx) => renderSuggestionItemHtml(l, idx)).join('')}
+      `;
+    }
+  } else {
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">No matches found</div>';
+    } else {
+      container.innerHTML = filtered.map((l, idx) => renderSuggestionItemHtml(l, idx)).join('');
+    }
+  }
+
+  container.style.display = 'block';
+}
+
+function renderSuggestionItemHtml(l, idx) {
+  // Safe serialization for click handler
+  const serialized = JSON.stringify(l).replace(/'/g, "&apos;").replace(/"/g, '&quot;');
+  return `
+    <div class="d-suggestion-item" data-index="${idx}" onclick="selectSuggestion('${serialized}')">
+      <div class="d-suggestion-info">
+        <div class="d-suggestion-code">/${l.short_code}</div>
+        <div class="d-suggestion-title">${l.title || 'Untitled Link'}</div>
+        <div class="d-suggestion-url" title="${l.original_url}">${l.original_url}</div>
+      </div>
+      <div class="d-suggestion-meta">
+        <div class="d-suggestion-clicks">${l.click_count.toLocaleString()} clicks</div>
+      </div>
+    </div>
+  `;
+}
+
+function selectSuggestion(lJsonStr) {
+  const l = JSON.parse(lJsonStr.replace(/&apos;/g, "'").replace(/&quot;/g, '"'));
+  openLinkDetail(l);
+  hideSuggestions();
+}
+
+function hideSuggestions() {
+  setTimeout(() => {
+    const container = document.getElementById('searchSuggestions');
+    if (container) container.style.display = 'none';
+  }, 200); // delay to allow click events to register
+}
+
+function showSuggestions() {
+  const input = document.getElementById('searchInput');
+  if (input) {
+    updateSearchSuggestions(input.value);
+  }
+}
+
+function handleSearchKeydown(e) {
+  const container = document.getElementById('searchSuggestions');
+  if (!container || container.style.display === 'none') return;
+
+  const items = container.querySelectorAll('.d-suggestion-item');
+  if (items.length === 0) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length;
+    highlightSuggestion(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeSuggestionIndex = (activeSuggestionIndex - 1 + items.length) % items.length;
+    highlightSuggestion(items);
+  } else if (e.key === 'Enter') {
+    if (activeSuggestionIndex >= 0 && activeSuggestionIndex < items.length) {
+      e.preventDefault();
+      items[activeSuggestionIndex].click();
+    }
+  } else if (e.key === 'Escape') {
+    hideSuggestions();
+  }
+}
+
+function highlightSuggestion(items) {
+  items.forEach((item, idx) => {
+    if (idx === activeSuggestionIndex) {
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
+function filterLinks(q) {
+  const filtered = allLinks.filter(l =>
+    l.short_code.toLowerCase().includes(q.toLowerCase()) || 
+    l.original_url.toLowerCase().includes(q.toLowerCase()) || 
+    (l.title||'').toLowerCase().includes(q.toLowerCase())
+  );
+  renderLinks(filtered);
+}
+
+async function copyShort(code) {
+  await navigator.clipboard.writeText(window.location.origin + '/' + code).catch(()=>{});
+  showToast('Copied!', 'success');
+}
+
+async function deleteLink(id) {
+  if (!confirm('Delete this link? This cannot be undone.')) return;
+  const r = await fetch('/api/links/' + id, {method:'DELETE'});
+  if (r.ok) { showToast('Link deleted', 'success'); loadLinks(); }
+  else showToast('Delete failed', 'error');
+}
+
+function downloadQR(id, code) {
+  const a = document.createElement('a');
+  a.href = '/api/links/' + id + '/qr?format=download';
+  a.download = 'qr-' + code + '.png';
+  a.click();
+}
+
+loadLinks();
+</script>
+{% endblock %}

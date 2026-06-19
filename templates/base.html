@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{% block meta_desc %}Drizl — Shorten, track, and control your links. Analytics, A/B testing, QR codes and more.{% endblock %}" />
+  <title>{% block title %}Drizl — Drop the long. Share the short.{% endblock %}</title>
+  <link rel="icon" id="favicon" type="image/x-icon" href="{{ url_for('static', filename='images/dark mode_icon.ico') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <script>
+    (function() {
+      const saved = localStorage.getItem('drizl-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', saved);
+      // Set favicon immediately
+      const icon = saved === 'light' ? 'light mode_icon.ico' : 'dark mode_icon.ico';
+      const link = document.getElementById('favicon');
+      if (link) link.href = `/static/images/${icon}`;
+    })();
+  </script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% block body %}{% endblock %}
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script>
+    const firebaseConfig = {{ firebase_config | tojson }};
+    if (firebaseConfig.apiKey) {
+      firebase.initializeApp(firebaseConfig);
+    } else {
+      console.warn("Firebase Config is missing. Please check your .env variables.");
+    }
+  </script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
